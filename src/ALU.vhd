@@ -8,7 +8,7 @@ entity ALU is
         i_B       : in  std_logic_vector(7 downto 0);
         i_op      : in  std_logic_vector(2 downto 0);
         o_result  : out std_logic_vector(7 downto 0);
-        o_flags   : out std_logic_vector(3 downto 0)  -- Zero, Negative, Overflow, Carry
+        o_flags   : out std_logic_vector(3 downto 0)  -- Negative, Zero, Carry, Overflow
     );
 end ALU;
 
@@ -58,7 +58,7 @@ begin
 
         -- Overflow flag for add/sub
         if i_op = "000" or i_op = "001" then
-            c_overflow <= (i_A(7) xnor i_B(7)) and (i_A(7) xor v_result(7));
+            c_overflow <= '1' when (i_A(7) = i_B(7) and v_result(7) /= i_A(7)) else '0';
         else
             c_overflow <= '0';
         end if;
@@ -69,6 +69,6 @@ begin
 
     -- Output assignments
     o_result <= std_logic_vector(c_result(7 downto 0));
-    o_flags <= c_carry & c_overflow & c_negative & c_zero;
+    o_flags <= c_negative & c_zero & c_carry & c_overflow;  -- NZCV order
 
 end behavioral;
