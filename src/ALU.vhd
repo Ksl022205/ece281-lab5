@@ -28,26 +28,28 @@ architecture behavioral of ALU is
     signal c_overflow : std_logic;
 begin
 
-    process(i_A, i_B, i_op)
-    begin
-        -- Sign-extend inputs to 9 bits
-        v_A <= signed(i_A(7) & i_A);
-        v_B <= signed(i_B(7) & i_B);
+process(i_A, i_B, i_op)
+    variable a, b : signed(8 downto 0);
+    variable r    : signed(8 downto 0) := (others => '0');
+begin
+    a := signed(i_A(7) & i_A);
+    b := signed(i_B(7) & i_B);
 
-        -- Default result
-        case i_op is
-            when "000" =>  -- ADD
-                v_result <= v_A + v_B;
-            when "001" =>  -- SUB
-                v_result <= v_A - v_B;
-            when "010" =>  -- AND
-                v_result <= signed('0' & (i_A and i_B));
-            when "011" =>  -- OR
-                v_result <= signed('0' & (i_A or i_B));
-            when others =>
-                v_result <= (others => '0');
-        end case;
-    end process;
+    case i_op is
+        when "000" =>  -- ADD
+            r := a + b;
+        when "001" =>  -- SUB
+            r := a - b;
+        when "010" =>  -- AND
+            r := signed('0' & (i_A and i_B));
+        when "011" =>  -- OR
+            r := signed('0' & (i_A or i_B));
+        when others =>
+            r := (others => '0');
+    end case;
+
+    v_result <= r;
+end process;
 
     -- Overflow detection using Boolean logic
     is_add  <= '1' when i_op = "000" else '0';
