@@ -38,8 +38,8 @@ begin
 
         case i_op is
             when "000" =>  -- ADD
-                R_unsigned := ("0" & A_unsigned) + ("0" & B_unsigned);
-                R_signed   := signed(R_unsigned(7 downto 0));
+                R_unsigned := ("0" & A_unsigned) + ("0" & B_unsigned);  -- 9-bit addition for carry
+                R_signed   := signed(R_unsigned(7 downto 0));            -- Store result as signed
                 s_result   <= std_logic_vector(R_signed);
 
                 -- Carry flag
@@ -57,7 +57,7 @@ begin
                 R_signed   := signed(R_unsigned(7 downto 0));
                 s_result   <= std_logic_vector(R_signed);
 
-                -- Carry flag
+                -- Carry flag (borrow in subtraction)
                 if A_unsigned < B_unsigned then
                     s_carry <= '1';
                 end if;
@@ -90,11 +90,12 @@ begin
             s_zero <= '0';
         end if;
 
-        -- Negative flag (MSB)
+        -- Negative flag (MSB of the result)
         s_negative <= s_result(7);
     end process;
 
+    -- Output result and flags
     o_result <= s_result;
-    o_flags <= s_negative & s_zero & s_carry & s_overflow;
+    o_flags <= s_negative & s_zero & s_carry & s_overflow;  -- NZCV order
 
 end behavioral;
