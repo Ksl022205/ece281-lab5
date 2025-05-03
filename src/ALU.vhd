@@ -8,7 +8,7 @@ entity ALU is
         i_B       : in  std_logic_vector(7 downto 0);
         i_op      : in  std_logic_vector(2 downto 0);
         o_result  : out std_logic_vector(7 downto 0);
-        o_flags   : out std_logic_vector(3 downto 0)  -- NZCV: Negative, Zero, Carry, Overflow
+        o_flags   : out std_logic_vector(3 downto 0)  -- ZNCV: Zero, Negative, Carry, Overflow
     );
 end ALU;
 
@@ -96,6 +96,6 @@ begin
 
     -- Output result and flags
     o_result <= s_result;
-    o_flags <= s_negative & s_zero & s_carry & s_overflow;  -- NZCV order
+    o_flags <= s_zero & s_negative & s_carry & s_overflow;  -- ZNCV order
 
 end behavioral;
