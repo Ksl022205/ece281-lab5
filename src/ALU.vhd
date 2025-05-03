@@ -8,7 +8,7 @@ entity ALU is
         i_B       : in  std_logic_vector(7 downto 0);
         i_op      : in  std_logic_vector(2 downto 0);
         o_result  : out std_logic_vector(7 downto 0);
-        o_flags   : out std_logic_vector(3 downto 0)  -- ZNCV: Zero, Negative, Carry, Overflow
+        o_flags   : out std_logic_vector(3 downto 0)  -- NZCV: Negative, Zero, Carry, Overflow
     );
 end ALU;
 
@@ -38,19 +38,15 @@ begin
 
         case i_op is
             when "000" =>  -- ADD
-                R_unsigned := ("0" & A_unsigned) + ("0" & B_unsigned);  -- 9-bit addition for carry
+                R_unsigned := ("0" & AUnsigned) + ("0" & B_unsigned);  -- 9-bit addition for carry
+                s_result   <= std_logic_vector(R_unsigned(7 downto 0));
                 R_signed   := signed(R_unsigned(7 downto 0));            -- Store result as signed
-                s_result   <= std_logic_vector(R_signed);
 
                 -- Carry flag
-                if R_unsigned(8) = '1' then
-                    s_carry <= '1';
-                end if;
+                s_carry <= R_unsigned(8);
 
                 -- Overflow flag (signed)
-                if (A_signed(7) = B_signed(7)) and (R_signed(7) /= A_signed(7)) then
-                    s_overflow <= '1';
-                end if;
+                s_overflow <= '1' when (A_signed(7) = B_signed(7) and R_signed(7) /= A_signed(7)) else '0';
 
             when "001" =>  -- SUB
                 R_unsigned := ("0" & A_unsigned) - ("0" & B_unsigned);
@@ -96,6 +92,6 @@ begin
 
     -- Output result and flags
     o_result <= s_result;
-    o_flags <= s_zero & s_negative & s_carry & s_overflow;  -- ZNCV order
+    o_flags <= s_negative & s_zero & s_carry & s_overflow;  -- NZCV order
 
 end behavioral;
