@@ -33,15 +33,21 @@ begin
 
         s_carry    <= '0';
         s_overflow <= '0';
+        s_zero     <= '0';
+        s_negative <= '0';
 
         case i_op is
             when "000" =>  -- ADD
                 R_unsigned := ("0" & A_unsigned) + ("0" & B_unsigned);
                 R_signed   := signed(R_unsigned(7 downto 0));
                 s_result   <= std_logic_vector(R_signed);
+
+                -- Carry flag
                 if R_unsigned(8) = '1' then
                     s_carry <= '1';
                 end if;
+
+                -- Overflow flag (signed)
                 if (A_signed(7) = B_signed(7)) and (R_signed(7) /= A_signed(7)) then
                     s_overflow <= '1';
                 end if;
@@ -50,9 +56,13 @@ begin
                 R_unsigned := ("0" & A_unsigned) - ("0" & B_unsigned);
                 R_signed   := signed(R_unsigned(7 downto 0));
                 s_result   <= std_logic_vector(R_signed);
+
+                -- Carry flag
                 if A_unsigned < B_unsigned then
                     s_carry <= '1';
                 end if;
+
+                -- Overflow flag (signed)
                 if (A_signed(7) /= B_signed(7)) and (R_signed(7) /= A_signed(7)) then
                     s_overflow <= '1';
                 end if;
