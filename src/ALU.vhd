@@ -8,12 +8,12 @@ entity ALU is
         i_B       : in  std_logic_vector(7 downto 0);
         i_op      : in  std_logic_vector(2 downto 0);
         o_result  : out std_logic_vector(7 downto 0);
-        o_flags   : out std_logic_vector(3 downto 0)  -- ZNCV: Zero, Negative, Carry, Overflow
+        o_flags   : out std_logic_vector(3 downto 0)  -- CZNV: Carry, Zero, Negative, Overflow
     );
 end ALU;
 
 architecture behavioral of ALU is
-    signal s_result    : std_logic_vector(7 downto 0);
+    signal s_result    : std_logic_vector(7 downto 0) := (others => '0');
     signal s_carry     : std_logic := '0';
     signal s_overflow  : std_logic := '0';
     signal s_zero      : std_logic := '0';
@@ -23,14 +23,15 @@ begin
     process(i_A, i_B, i_op)
         variable A_unsigned, B_unsigned : unsigned(7 downto 0);
         variable A_signed, B_signed     : signed(7 downto 0);
-        variable R_unsigned             : unsigned(8 downto 0);  -- for carry
-        variable R_signed               : signed(7 downto 0);    -- for overflow
+        variable R_signed               : signed(7 downto 0);
+        variable sum_unsigned           : unsigned(8 downto 0);  -- For carry in ADD
     begin
         A_unsigned := unsigned(i_A);
         B_unsigned := unsigned(i_B);
         A_signed   := signed(i_A);
         B_signed   := signed(i_B);
 
+        s_result   <= (others => '0');
         s_carry    <= '0';
         s_overflow <= '0';
         s_zero     <= '0';
@@ -38,48 +39,44 @@ begin
 
         case i_op is
             when "000" =>  -- ADD
-                R_unsigned := ("0" & A_unsigned) + ("0" & B_unsigned);  -- 9-bit addition for carry
-                R_signed   := signed(R_unsigned(7 downto 0));            -- Store result as signed
-                s_result   <= std_logic_vector(R_signed);
-
+                sum_unsigned := ("0" & A_unsigned) + ("0" & B_unsigned);
+                s_result <= std_logic_vector(sum_unsigned(7 downto 0));
+                R_signed := signed(sum_unsigned(7 downto 0));
                 -- Carry flag
-                if R_unsigned(8) = '1' then
-                    s_carry <= '1';
-                end if;
-
-                -- Overflow flag (signed)
+                s_carry <= sum_unsigned(8);
+                -- Overflow flag
                 if (A_signed(7) = B_signed(7)) and (R_signed(7) /= A_signed(7)) then
                     s_overflow <= '1';
+                else
+                    s_overflow <= '0';
                 end if;
 
             when "001" =>  -- SUB
-                R_unsigned := ("0" & A_unsigned) - ("0" & B_unsigned);
-                R_signed   := signed(R_unsigned(7 downto 0));
-                s_result   <= std_logic_vector(R_signed);
-
-                -- Carry flag (borrow in subtraction)
+                sum_unsigned := ("0" & A_unsigned) - ("0" & B_unsigned);
+                s_result <= std_logic_vector(sum_unsigned(7 downto 0));
+                R_signed := signed(sum_unsigned(7 downto 0));
+                -- Carry flag (borrow)
                 if A_unsigned < B_unsigned then
                     s_carry <= '1';
                 end if;
-
-                -- Overflow flag (signed)
+                -- Overflow flag
                 if (A_signed(7) /= B_signed(7)) and (R_signed(7) /= A_signed(7)) then
                     s_overflow <= '1';
                 end if;
 
             when "010" =>  -- AND
-                s_result   <= i_A and i_B;
-                s_carry    <= '0';
+                s_result <= i_A and i_B;
+                s_carry <= '0';
                 s_overflow <= '0';
 
             when "011" =>  -- OR
-                s_result   <= i_A or i_B;
-                s_carry    <= '0';
+                s_result <= i_A or i_B;
+                s_carry <= '0';
                 s_overflow <= '0';
 
             when others =>
-                s_result   <= (others => '0');
-                s_carry    <= '0';
+                s_result <= (others => '0');
+                s_carry <= '0';
                 s_overflow <= '0';
         end case;
 
@@ -90,12 +87,12 @@ begin
             s_zero <= '0';
         end if;
 
-        -- Negative flag (MSB of the result)
+        -- Negative flag
         s_negative <= s_result(7);
     end process;
 
     -- Output result and flags
     o_result <= s_result;
-    o_flags <= s_zero & s_negative & s_carry & s_overflow;  -- ZNCV order
+    o_flags <= s_carry & s_zero & s_negative & s_overflow;  -- CZNV order
 
 end behavioral;
