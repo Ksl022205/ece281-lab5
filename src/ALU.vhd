@@ -74,5 +74,9 @@ begin
       o_flags(3) <= alu_result(7);
       o_flags(2) <= '1' when alu_result = "00000000" else '0';
       o_flags(1) <= carry_high and (not i_op(1));
-
+      alu_not <= not i_op(1);
+      xnor_s <= not (i_A(7) xor i_B(7) xor i_op(0));
+      xor_s <= i_A(7) xor alu_result(7);
+      x_and <= xnor_s and xor_s;
+      o_flags(0) <= x_and and alu_not;
 end behavioral;
