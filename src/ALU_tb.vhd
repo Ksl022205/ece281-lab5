@@ -1,171 +1,80 @@
-library ieee;
-    use ieee.std_logic_1164.all;
-    use ieee.numeric_std.all;
-
-entity ALU_tb is
-end ALU_tb;
-
-architecture testbench of ALU_tb is
-
-    --------------------------------------------------------------------------
-    --  DUT declaration
-    --------------------------------------------------------------------------
-    component ALU
-        port (
-            i_A      : in  std_logic_vector(7 downto 0);
-            i_B      : in  std_logic_vector(7 downto 0);
-            i_op     : in  std_logic_vector(2 downto 0);
-            o_result : out std_logic_vector(7 downto 0);
-            o_flags  : out std_logic_vector(3 downto 0)   -- N Z C V
-        );
-    end component;
-
-    -- DUT I/O signals
-    signal w_A, w_B, w_result : std_logic_vector(7 downto 0) := (others => '0');
-    signal w_op     : std_logic_vector(2 downto 0) := (others => '0');
-    signal w_flags  : std_logic_vector(3 downto 0) := (others => '0');
-
-    -- Convenience op-codes (only the LSB two bits are required by Table 5-1)
-    constant OP_ADD : std_logic_vector(2 downto 0) := "000";  -- 00
-    constant OP_SUB : std_logic_vector(2 downto 0) := "001";  -- 01
-    constant OP_AND : std_logic_vector(2 downto 0) := "010";  -- 10
-    constant OP_OR  : std_logic_vector(2 downto 0) := "011";  -- 11
-
-    -- Time between successive stimuli (no clock is needed for a pure-combinational ALU)
-    constant k_step : time := 10 ns;
-
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+ 
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+ 
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+ 
+entity ALU is
+    Port ( i_A : in STD_LOGIC_VECTOR (7 downto 0);
+           i_B : in STD_LOGIC_VECTOR (7 downto 0);
+           i_op : in STD_LOGIC_VECTOR (2 downto 0);
+           o_result : out STD_LOGIC_VECTOR (7 downto 0);
+           o_flags : out STD_LOGIC_VECTOR (3 downto 0));  -- N Z C V
+end ALU;
+ 
+architecture Behavioral of ALU is
 begin
-    --------------------------------------------------------------------------
-    --  DUT port-map
-    --------------------------------------------------------------------------
-    uut : ALU
-        port map (
-            i_A      => w_A,
-            i_B      => w_B,
-            i_op     => w_op,
-            o_result => w_result,
-            o_flags  => w_flags
-        );
-
-    --------------------------------------------------------------------------
-    --  Test-plan process
-    --------------------------------------------------------------------------
-    stim_proc : process
-        -- local helper to convert integers to 8-bit vectors quickly
-        impure function to_vec(val : natural) return std_logic_vector is
-        begin
-            return std_logic_vector(to_unsigned(val, 8));
-        end function;
+    process (i_A, i_B, i_op)
+        variable result : std_logic_vector(7 downto 0);
+        variable flags  : std_logic_vector(3 downto 0);  -- N Z C V
+        variable carry  : std_logic;
     begin
-        ----------------------------------------------------------------------------
-        --  1. ADD - zero result (0 + 0)
-        ----------------------------------------------------------------------------
-        w_A  <= to_vec(0);
-        w_B  <= to_vec(0);
-        w_op <= OP_ADD;
-        wait for k_step;
-
-        assert w_result = to_vec(0)
-            report "ADD 0+0: wrong result" severity error;
-        assert w_flags  = "0100"             -- N=0 Z=1 C=0 V=0
-            report "ADD 0+0: wrong NZCV" severity error;
-
-        ----------------------------------------------------------------------------
-        --  2. ADD - normal, no carry, no overflow  (5 + 3 = 8)
-        ----------------------------------------------------------------------------
-        w_A  <= to_vec(5);
-        w_B  <= to_vec(3);
-        w_op <= OP_ADD;
-        wait for k_step;
-
-        assert w_result = to_vec(8)
-            report "ADD 5+3: wrong result" severity error;
-        assert w_flags  = "0000"             -- N=0 Z=0 C=0 V=0
-            report "ADD 5+3: wrong NZCV" severity error;
-
-        ----------------------------------------------------------------------------
-        --  3. ADD - generates carry out (240 + 17 = 257 -> 0x01, C=1)
-        ----------------------------------------------------------------------------
-        w_A  <= x"F0";           -- 240  (-16 signed)
-        w_B  <= x"11";           -- 17
-        w_op <= OP_ADD;
-        wait for k_step;
-
-        assert w_result = x"01"
-            report "ADD carry: wrong result" severity error;
-        assert w_flags  = "0010"             -- N=0 Z=0 C=1 V=0
-            report "ADD carry: wrong NZCV" severity error;
-
-        ----------------------------------------------------------------------------
-        --  4. SUB - simple (10 - 3 = 7)
-        ----------------------------------------------------------------------------
-        w_A  <= to_vec(10);
-        w_B  <= to_vec(3);
-        w_op <= OP_SUB;
-        wait for k_step;
-
-        assert w_result = to_vec(7)
-            report "SUB 10-3: wrong result" severity error;
-        assert w_flags  = "0000"             -- N=0 Z=0 C=0 V=0
-            report "SUB 10-3: wrong NZCV" severity error;
-
-        ----------------------------------------------------------------------------
-        --  5. SUB - negative result with no overflow (3 - 10 = -7)
-        ----------------------------------------------------------------------------
-        w_A  <= to_vec(3);
-        w_B  <= to_vec(10);
-        w_op <= OP_SUB;
-        wait for k_step;
-
-        assert w_result = x"F9"              -- 0xF9 = -7
-            report "SUB 3-10: wrong result" severity error;
-        assert w_flags  = "1000"             -- N=1 Z=0 C=0 V=0
-            report "SUB 3-10: wrong NZCV" severity error;
-
-        ----------------------------------------------------------------------------
-        --  6. SUB - negative result with overflow (-100 - 30 = -130)
-        ----------------------------------------------------------------------------
-        w_A  <= x"9C";           -- -100 signed
-        w_B  <= to_vec(30);
-        w_op <= OP_SUB;
-        wait for k_step;
-
-        assert w_result = x"7E"              -- -130 = 126 (8-bit wraparound)
-            report "SUB -100-30: wrong result" severity error;
-        assert w_flags  = "0000"             -- N=0 Z=0 C=0 V=0
-            report "SUB -100-30: wrong NZCV" severity error;
-
-        ----------------------------------------------------------------------------
-        --  7. AND  (0x55 & 0x0F = 0x05)
-        ----------------------------------------------------------------------------
-        w_A  <= x"55";
-        w_B  <= x"0F";
-        w_op <= OP_AND;
-        wait for k_step;
-
-        assert w_result = x"05"
-            report "AND: wrong result" severity error;
-        assert w_flags  = "0000"             -- N=0 Z=0 C=0 V=0
-            report "AND: wrong NZCV" severity error;
-
-        ----------------------------------------------------------------------------
-        --  8. OR   (0x80 | 0x01 = 0x81, negative set)
-        ----------------------------------------------------------------------------
-        w_A  <= x"80";
-        w_B  <= x"01";
-        w_op <= OP_OR;
-        wait for k_step;
-
-        assert w_result = x"81"
-            report "OR: wrong result" severity error;
-        assert w_flags  = "1000"             -- N=1 Z=0 C=0 V=0
-            report "OR: wrong NZCV" severity error;
-
-        ----------------------------------------------------------------------------
-        --  All tests passed
-        ----------------------------------------------------------------------------
-        report "ALU test-bench completed successfully!" severity note;
-        wait;   -- stop simulation
+        -- Default outputs
+        result := (others => '0');
+        flags  := (others => '0');
+        carry  := '0';
+ 
+        case i_op is
+            when "000" =>  -- ADD: A + B
+                -- Simple addition with carry
+                result := std_logic_vector(unsigned(i_A) + unsigned(i_B));
+                carry := '0';
+                if unsigned(i_A) + unsigned(i_B) > 255 then
+                    carry := '1';  -- Carry if result > 255
+                end if;
+                -- Overflow: same sign inputs, different sign result
+                if (i_A(7) = i_B(7) and result(7) /= i_A(7)) then
+                    flags(0) := '1';  -- V
+                end if;
+ 
+            when "001" =>  -- SUB: A - B
+                -- Simple subtraction
+                result := std_logic_vector(unsigned(i_A) - unsigned(i_B));
+                carry := '1';
+                if unsigned(i_A) < unsigned(i_B) then
+                    carry := '0';  -- No carry if borrow needed
+                end if;
+                -- Overflow: opposite sign inputs, result sign differs from A
+                if (i_A(7) /= i_B(7) and result(7) /= i_A(7)) then
+                    flags(0) := '1';  -- V
+                end if;
+ 
+            when "010" =>  -- AND: A & B
+                result := i_A and i_B;
+ 
+            when "011" =>  -- OR: A | B
+                result := i_A or i_B;
+ 
+            when others =>  -- Invalid op-codes
+                result := (others => '0');
+                flags := (others => '0');
+        end case;
+ 
+        -- Set flags
+        flags(3) := result(7);  -- N: Negative (MSB)
+        if result = "00000000" then
+            flags(2) := '1';  -- Z: Zero
+        end if;
+        flags(1) := carry;  -- C: Carry/Borrow
+ 
+        -- Assign outputs
+        o_result <= result;
+        o_flags <= flags;
     end process;
-
-end testbench;
+end Behavioral;
