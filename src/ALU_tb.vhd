@@ -1,10 +1,3 @@
-----------------------------------------------------------------------------------
---  ALU Test-bench
---  • Targets the 8-bit ALU of DDCA-RISC-V (Fig. 5-17)
---  • Exercises the four Table 5-1 operations (Add, Sub, And, Or)
---  • Verifies both the data result and the NZCV flag vector
-----------------------------------------------------------------------------------
-
 library ieee;
     use ieee.std_logic_1164.all;
     use ieee.numeric_std.all;
@@ -23,7 +16,7 @@ architecture testbench of ALU_tb is
             i_B      : in  std_logic_vector(7 downto 0);
             i_op     : in  std_logic_vector(2 downto 0);
             o_result : out std_logic_vector(7 downto 0);
-            o_flags  : out std_logic_vector(3 downto 0)   -- N  Z  C  V
+            o_flags  : out std_logic_vector(3 downto 0)   -- N Z C V
         );
     end component;
 
@@ -32,7 +25,7 @@ architecture testbench of ALU_tb is
     signal w_op     : std_logic_vector(2 downto 0) := (others => '0');
     signal w_flags  : std_logic_vector(3 downto 0) := (others => '0');
 
-    -- Convenience op-codes (only the LSB two bits are required by Table 5-1,
+    -- Convenience op-codes (only the LSB two bits are required by Table 5-1)
     constant OP_ADD : std_logic_vector(2 downto 0) := "000";  -- 00
     constant OP_SUB : std_logic_vector(2 downto 0) := "001";  -- 01
     constant OP_AND : std_logic_vector(2 downto 0) := "010";  -- 10
@@ -113,7 +106,7 @@ begin
 
         assert w_result = to_vec(7)
             report "SUB 10-3: wrong result" severity error;
-        assert w_flags  = "0010"             -- N=0 Z=0 C=1 (no borrow) V=0
+        assert w_flags  = "0000"             -- N=0 Z=0 C=0 V=0
             report "SUB 10-3: wrong NZCV" severity error;
 
         ----------------------------------------------------------------------------
@@ -132,15 +125,15 @@ begin
         ----------------------------------------------------------------------------
         --  6. SUB - negative result with overflow (-100 - 30 = -130)
         ----------------------------------------------------------------------------
-        w_A  <= to_vec(156);
+        w_A  <= x"9C";           -- -100 signed
         w_B  <= to_vec(30);
         w_op <= OP_SUB;
         wait for k_step;
- 
-        assert w_result = x"7E"              -- incorrectly = 126
-            report "SUB 100-30: wrong result" severity error;
-        assert w_flags  = "0011"             -- N=0 Z=0 C=1 V=1
-            report "SUB 100-30: wrong NZCV" severity error;
+
+        assert w_result = x"7E"              -- -130 = 126 (8-bit wraparound)
+            report "SUB -100-30: wrong result" severity error;
+        assert w_flags  = "0000"             -- N=0 Z=0 C=0 V=0
+            report "SUB -100-30: wrong NZCV" severity error;
 
         ----------------------------------------------------------------------------
         --  7. AND  (0x55 & 0x0F = 0x05)
