@@ -1,77 +1,90 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
- 
+
 entity ALU is
     port (
         i_A       : in  std_logic_vector(7 downto 0);
         i_B       : in  std_logic_vector(7 downto 0);
         i_op      : in  std_logic_vector(2 downto 0);
         o_result  : out std_logic_vector(7 downto 0);
-        o_flags   : out std_logic_vector(3 downto 0)  -- ZNCV: Zero, Negative, Carry, Overflow
+        o_flags   : out std_logic_vector(3 downto 0)  -- NZCV: Negative, Zero, Carry, Overflow
     );
 end ALU;
- 
+
 architecture behavioral of ALU is
-    component ripple_adder is 
-    Port( A : in STD_LOGIC_VECTOR (3 downto 0);
-          B : in STD_LOGIC_VECTOR (3 downto 0);
-          Cin : in STD_LOGIC;
-          S : out STD_LOGIC_VECTOR (3 downto 0);
-          Cout : out STD_LOGIC
-          );
-    end component ripple_adder;
-    signal A_low, A_high    :   std_logic_vector(3 downto 0);
-    signal B_low, B_high    :   std_logic_vector(3 downto 0);
-    signal B_mod            :   std_logic_vector(7 downto 0);
-    signal sum_low, sum_high :  std_logic_vector(3 downto 0);
-    signal carry_low : STD_LOGIC;
-    signal carry_high : STD_LOGIC;
-    signal alu_result : STD_LOGIC_VECTOR(7 downto 0);
-    signal Cin       : STD_LOGIC;
-    signal sum_final  : STD_LOGIC_VECTOR(7 downto 0);
-    signal xnor_s     : std_logic;
-    signal xor_s      : std_logic;
-    signal alu_not    : std_logic;
-    signal x_and      : std_logic;
-begin 
-    A_high <= i_A(7 downto 4);
-    A_low  <= i_A(3 downto 0);
-    B_mod <= i_B when i_op /= "001" else (not i_B);
-    B_high <= B_mod(7 downto 4);
-    B_low <= B_mod(3 downto 0);
-    Cin <= '1' when i_op = "001" else '0';
-    ripple_adder_1: ripple_adder
-        port map(
-            A => A_low,
-            B => B_low,
-            Cin => Cin,
-            S => sum_low,
-            Cout => carry_low
-            );
-     ripple_adder_2: ripple_adder
-         port map(
-            A => A_high,
-            B => B_high,
-            Cin => carry_low,
-            S => sum_high,
-            Cout => carry_high
-            );
-     sum_final(7 downto 4) <= sum_high;
-     sum_final(3 downto 0) <= sum_low;
-     with i_op select
-     alu_result <= sum_final when "000",
-                   sum_final when "001",
-                   (B_mod and i_A) when "010",
-                   (B_mod or i_A) when "011",
-                   (others => '0') when others;
-      o_result <= alu_result;
-      o_flags(3) <= alu_result(7);
-      o_flags(2) <= '1' when alu_result = "00000000" else '0';
-      o_flags(1) <= carry_high and (not i_op(1));
-      alu_not <= not i_op(1);
-      xnor_s <= not (i_A(7) xor i_B(7) xor i_op(0));
-      xor_s <= i_A(7) xor alu_result(7);
-      x_and <= xnor_s and xor_s;
-      o_flags(0) <= x_and and alu_not;
+    signal s_result    : std_logic_vector(7 downto 0);
+    signal s_carry     : std_logic := '0';
+    signal s_overflow  : std_logic := '0';
+    signal s_zero      : std_logic := '0';
+    signal s_negative  : std_logic := '0';
+begin
+
+    process(i_A, i_B, i_op)
+        variable A_unsigned, B_unsigned : unsigned(7 downto 0);
+        variable A_signed, B_signed     : signed(7 downto 0);
+        variable R_unsigned             : unsigned(8 downto 0);  -- for carry
+        variable R_signed               : signed(7 downto 0);    -- for overflow
+    begin
+        A_unsigned := unsigned(i_A);
+        B_unsigned := unsigned(i_B);
+        A_signed   := signed(i_A);
+        B_signed   := signed(i_B);
+
+        s_carry    <= '0';
+        s_overflow <= '0';
+
+        case i_op is
+            when "000" =>  -- ADD
+                R_unsigned := ("0" & A_unsigned) + ("0" & B_unsigned);
+                R_signed   := signed(R_unsigned(7 downto 0));
+                s_result   <= std_logic_vector(R_signed);
+                if R_unsigned(8) = '1' then
+                    s_carry <= '1';
+                end if;
+                if (A_signed(7) = B_signed(7)) and (R_signed(7) /= A_signed(7)) then
+                    s_overflow <= '1';
+                end if;
+
+            when "001" =>  -- SUB
+                R_unsigned := ("0" & A_unsigned) - ("0" & B_unsigned);
+                R_signed   := signed(R_unsigned(7 downto 0));
+                s_result   <= std_logic_vector(R_signed);
+                if A_unsigned < B_unsigned then
+                    s_carry <= '1';
+                end if;
+                if (A_signed(7) /= B_signed(7)) and (R_signed(7) /= A_signed(7)) then
+                    s_overflow <= '1';
+                end if;
+
+            when "010" =>  -- AND
+                s_result   <= i_A and i_B;
+                s_carry    <= '0';
+                s_overflow <= '0';
+
+            when "011" =>  -- OR
+                s_result   <= i_A or i_B;
+                s_carry    <= '0';
+                s_overflow <= '0';
+
+            when others =>
+                s_result   <= (others => '0');
+                s_carry    <= '0';
+                s_overflow <= '0';
+        end case;
+
+        -- Zero flag
+        if s_result = x"00" then
+            s_zero <= '1';
+        else
+            s_zero <= '0';
+        end if;
+
+        -- Negative flag (MSB)
+        s_negative <= s_result(7);
+    end process;
+
+    o_result <= s_result;
+    o_flags <= s_negative & s_zero & s_carry & s_overflow;
+
 end behavioral;
