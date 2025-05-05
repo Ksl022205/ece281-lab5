@@ -13,14 +13,14 @@ entity ALU is
 end ALU;
 
 architecture behavioral of ALU is
-    component ripper_adder is 
+    component ripple_adder is 
     Port( A : in STD_LOGIC_VECTOR(3 downto 0);
           B : in std_logic_vector(3 downto 0);
           Cin : in STD_LOGIC;
           S : out STD_LOGIC_VECTOR (3 downto 0);
           Cout : out std_logic
           );
-    end component ripper_adder;
+    end component ripple_adder;
     
     signal X_low, X_high    :   std_logic_vector(3 downto 0);
     signal Y_low, Y_high    :   std_logic_vector(3 downto 0);
@@ -43,7 +43,7 @@ begin
     Y_low <= med(3 downto 0);
     Z_in <= '1' when i_op = "001" else '0';
     
-    ripple_adder_1: ripper_adder
+    ripple_adder_1: ripple_adder
         port map(
             A => X_low,
             B => Y_low,
@@ -51,7 +51,7 @@ begin
             S => sum_low,
             Cout => carry_high
             );
-     ripple_adder_2: ripper_adder
+     ripple_adder_2: ripple_adder
          port map(
             A => X_high,
             B => Y_high,
