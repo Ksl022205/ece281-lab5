@@ -1,90 +1,76 @@
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
 
+use IEEE.NUMERIC_STD.ALL;
+ 
 entity ALU is
-    port (
-        i_A       : in  std_logic_vector(7 downto 0);
-        i_B       : in  std_logic_vector(7 downto 0);
-        i_op      : in  std_logic_vector(2 downto 0);
-        o_result  : out std_logic_vector(7 downto 0);
-        o_flags   : out std_logic_vector(3 downto 0)  -- NZCV: Negative, Zero, Carry, Overflow
-    );
+    Port ( i_A : in STD_LOGIC_VECTOR (7 downto 0);
+           i_B : in STD_LOGIC_VECTOR (7 downto 0);
+           i_op : in STD_LOGIC_VECTOR (2 downto 0);
+           o_result : out STD_LOGIC_VECTOR (7 downto 0);
+           o_flags : out STD_LOGIC_VECTOR (3 downto 0));  -- N Z C V
 end ALU;
-
-architecture behavioral of ALU is
-    signal s_result    : std_logic_vector(7 downto 0);
-    signal s_carry     : std_logic := '0';
-    signal s_overflow  : std_logic := '0';
-    signal s_zero      : std_logic := '0';
-    signal s_negative  : std_logic := '0';
+ 
+architecture Behavioral of ALU is
 begin
-
-    process(i_A, i_B, i_op)
-        variable A_unsigned, B_unsigned : unsigned(7 downto 0);
-        variable A_signed, B_signed     : signed(7 downto 0);
-        variable R_unsigned             : unsigned(8 downto 0);  -- for carry
-        variable R_signed               : signed(7 downto 0);    -- for overflow
+    process (i_A, i_B, i_op)
+        variable result : std_logic_vector(7 downto 0);
+        variable flags  : std_logic_vector(3 downto 0);  -- N Z C V
+        variable temp_sum : unsigned(8 downto 0);  -- 9-bit to catch carry
+        variable carry  : std_logic;
     begin
-        A_unsigned := unsigned(i_A);
-        B_unsigned := unsigned(i_B);
-        A_signed   := signed(i_A);
-        B_signed   := signed(i_B);
-
-        s_carry    <= '0';
-        s_overflow <= '0';
-
+        -- Default outputs
+        result := (others => '0');
+        flags  := (others => '0');
+        carry  := '0';
+ 
         case i_op is
-            when "000" =>  -- ADD
-                R_unsigned := ("0" & A_unsigned) + ("0" & B_unsigned);
-                R_signed   := signed(R_unsigned(7 downto 0));
-                s_result   <= std_logic_vector(R_signed);
-                if R_unsigned(8) = '1' then
-                    s_carry <= '1';
+            when "000" =>  -- ADD: A + B
+                temp_sum := unsigned('0' & i_A) + unsigned('0' & i_B);
+                result := std_logic_vector(temp_sum(7 downto 0));
+                carry := temp_sum(8);
+ 
+                -- Overflow: same sign inputs, different sign result
+                if (i_A(7) = i_B(7) and result(7) /= i_A(7)) then
+                    flags(0) := '1';  -- V
                 end if;
-                if (A_signed(7) = B_signed(7)) and (R_signed(7) /= A_signed(7)) then
-                    s_overflow <= '1';
+ 
+            when "001" =>  -- SUB: A - B
+                -- Subtract with borrow detection
+                temp_sum := unsigned('0' & i_A) - unsigned('0' & i_B);
+                result := std_logic_vector(temp_sum(7 downto 0));
+                if unsigned(i_A) < unsigned(i_B) then
+                    carry := '0';  -- Borrow occurred → no carry
+                else
+                    carry := '1';  -- No borrow → carry = 1
                 end if;
-
-            when "001" =>  -- SUB
-                R_unsigned := ("0" & A_unsigned) - ("0" & B_unsigned);
-                R_signed   := signed(R_unsigned(7 downto 0));
-                s_result   <= std_logic_vector(R_signed);
-                if A_unsigned < B_unsigned then
-                    s_carry <= '1';
+ 
+                -- Overflow: A and B different sign, result sign differs from A
+                if (i_A(7) /= i_B(7) and result(7) /= i_A(7)) then
+                    flags(0) := '1';  -- V
                 end if;
-                if (A_signed(7) /= B_signed(7)) and (R_signed(7) /= A_signed(7)) then
-                    s_overflow <= '1';
-                end if;
-
+ 
             when "010" =>  -- AND
-                s_result   <= i_A and i_B;
-                s_carry    <= '0';
-                s_overflow <= '0';
-
+                result := i_A and i_B;
+ 
             when "011" =>  -- OR
-                s_result   <= i_A or i_B;
-                s_carry    <= '0';
-                s_overflow <= '0';
-
+                result := i_A or i_B;
+ 
             when others =>
-                s_result   <= (others => '0');
-                s_carry    <= '0';
-                s_overflow <= '0';
+                result := (others => '0');
+                flags := (others => '0');
         end case;
-
-        -- Zero flag
-        if s_result = x"00" then
-            s_zero <= '1';
-        else
-            s_zero <= '0';
+ 
+        -- Set flags
+        flags(3) := result(7);                       -- N
+        if result = "00000000" then
+            flags(2) := '1';                         -- Z
         end if;
-
-        -- Negative flag (MSB)
-        s_negative <= s_result(7);
+        flags(1) := carry;                           -- C
+        -- V flag already set in ADD and SUB cases
+ 
+        -- Assign outputs
+        o_result <= result;
+        o_flags <= flags;
     end process;
-
-    o_result <= s_result;
-    o_flags <= s_negative & s_zero & s_carry & s_overflow;
-
-end behavioral;
+end Behavioral;
